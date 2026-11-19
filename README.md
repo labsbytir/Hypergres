@@ -7,7 +7,7 @@ Wolfi-based PostgreSQL 17 container image for Cloudflare Hyperdrive.
 Requires [apko](https://github.com/chainguard-dev/apko) v1.5.x and podman.
 
 ```bash
-apko build apko.yaml hypergres:v0.1.0 hypergres-build.tar --sbom=false --lockfile apko.lock.json
+apko build apko.yaml hypergres:v0.1.0 hypergres-build.tar --sbom=false --arch=host --lockfile apko.lock.json
 podman load < hypergres-build.tar
 ```
 
@@ -65,4 +65,5 @@ runs two per-request `pg` clients over host-side TCP).
 Release `v0.1.0` (see `RELEASES.md`): layer digest
 `sha256:78a98727d703aae6ecc2bcb4e2d1e2ffbbc1b157c4384b1b4023c66c58f75bdb`,
 pinned Wolfi package set in `apko.lock.json`. The Harvy sync plan consumes
-this digest as `image.ref`.
+this digest as `image.ref`. Host-arch-only digest: re-record at registry
+push (the published multi-arch digest will differ).

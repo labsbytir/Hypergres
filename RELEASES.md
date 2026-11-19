@@ -15,8 +15,10 @@ self-sign/fail-closed TLS, entrypoint-managed `hostssl` SCRAM remote access.
   Reproducible, no rotation to document.
 - Lockfile: `apko.lock.json` committed in `bc0dd93`
   (`fix: image-owned hostssl SCRAM remote access, shape-script minors`);
-  config checksum `sha256-2Amyvgu+XWt1vVkSntPJp6egY4mnyRD2Bh80O4y9bkc=`
-  (116 pinned packages, both archs).
+  `apko.yaml` config checksum as resolved by `apko lock`
+  `sha256-2Amyvgu+XWt1vVkSntPJp6egY4mnyRD2Bh80O4y9bkc=`
+  (116 pinned packages, both archs). Host-arch-only digest above:
+  re-record at registry push (the published multi-arch digest will differ).
 
 ### Verify evidence (both suites re-run green on release day)
 
