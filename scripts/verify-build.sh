@@ -7,12 +7,25 @@ TAG="${TAG:-hypergres:test}"
 NAME="${NAME:-hypergres-verify}"
 ARCH="${ARCH:-host}"
 
+echo "==> entrypoint parity (apko.yaml shell-fragment vs entrypoint.sh)"
+FRAG="$(mktemp)"; DERIVED="$(mktemp)"
+awk '/shell-fragment: \|/{f=1;next} f&&/^[^ ]/{f=0} f' apko.yaml | sed 's/^    //' | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}' > "$FRAG"
+sed -n '/^# FRAGMENT-BEGIN$/,/^# FRAGMENT-END$/p' entrypoint.sh | sed '1d;$d' > "$DERIVED"
+if ! diff -u "$FRAG" "$DERIVED"; then
+  echo "FAIL: entrypoint.sh drifted from apko.yaml shell-fragment" >&2
+  exit 1
+fi
+rm -f "$FRAG" "$DERIVED"
+echo "entrypoint parity ok"
+
 echo "==> apko build $TAG"
 # NOTE: apko v1.5.x requires an explicit output path (older versions defaulted
 # to <tag>.tar, as in the original Task 1 brief command).
 OUT="hypergres-build.tar"
 rm -f "$OUT" "$TAG"-*.tar hypergres-*.tar
-apko build apko.yaml "$TAG" "$OUT" --sbom=false --arch="$ARCH"
+# Pinned Wolfi package set (finding 2): regenerate with
+# `apko lock apko.yaml --output apko.lock.json` after any apko.yaml change.
+apko build apko.yaml "$TAG" "$OUT" --sbom=false --arch="$ARCH" --lockfile apko.lock.json
 
 TARBALL="$OUT"
 echo "==> /opt/podman/bin/podman load < $TARBALL"
@@ -51,6 +64,30 @@ echo "==> application_name passthrough"
   -tAc "SHOW application_name;" | grep -q "hypergres-verify" \
   || { echo "FAIL: application_name not passed through" >&2; exit 1; }
 echo "application_name ok"
+
+echo "==> config values (brief Step 2)"
+check_show() {
+  _got="$(/opt/podman/bin/podman exec "$NAME" psql -U postgres -h 127.0.0.1 -tAc "SHOW $1;" | tr -d '[:space:]')"
+  if [ "$_got" != "$2" ]; then
+    echo "FAIL: SHOW $1 = '$_got', want '$2'" >&2
+    exit 1
+  fi
+  echo "$1=$_got ok"
+}
+check_show ssl on
+check_show max_connections 100
+check_show shared_buffers 128MB
+check_show statement_timeout 30s
+check_show idle_in_transaction_session_timeout 1min
+check_show log_connections on
+
+echo "==> non-root uid 65532"
+_uid="$(/opt/podman/bin/podman exec "$NAME" id -u)"
+if [ "$_uid" != "65532" ]; then
+  echo "FAIL: container uid is $_uid, want 65532" >&2
+  exit 1
+fi
+echo "uid=65532 ok"
 
 /opt/podman/bin/podman rm -f "$NAME" >/dev/null
 echo "PASS"
