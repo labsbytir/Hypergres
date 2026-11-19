@@ -65,9 +65,12 @@ entrypoint:
         exit 1
       fi
       PWFILE="$(mktemp)"
+      # Remove the password file even if initdb fails (trap disarmed after success).
+      trap 'rm -f "$PWFILE"' EXIT
       printf '%s' "$POSTGRES_PASSWORD" > "$PWFILE"
       initdb -D "$PGDATA" --auth=scram-sha-256 --username=postgres --pwfile="$PWFILE"
       rm -f "$PWFILE"
+      trap - EXIT
       touch "$MARKER"
     elif [ -n "${POSTGRES_PASSWORD:-}" ]; then
       # Restart with a (possibly rotated) password: converge the role.
@@ -75,8 +78,17 @@ entrypoint:
       touch "$MARKER"
     fi
     # TLS is mandatory (Hyperdrive rejects non-TLS). Prefer an operator-mounted
-    # cert; otherwise mint a self-signed one. Fail closed: never boot ssl=off.
-    if [ ! -f "$PGDATA/server.crt" ] || [ ! -f "$PGDATA/server.key" ]; then
+    # cert; otherwise mint a self-signed one. Fail closed: never boot ssl=off,
+    # and never silently clobber a half-mounted pair.
+    _have_crt=0; _have_key=0
+    [ -f "$PGDATA/server.crt" ] && _have_crt=1
+    [ -f "$PGDATA/server.key" ] && _have_key=1
+    if [ "$((_have_crt + _have_key))" -eq 1 ]; then
+      echo 'hypergres: FATAL: half-mounted TLS pair in $PGDATA (have cert XOR key).' >&2
+      echo 'hypergres: FATAL: mount BOTH server.crt and server.key, or NEITHER (self-signed).' >&2
+      exit 1
+    fi
+    if [ "$_have_crt" -eq 0 ]; then
       openssl req -new -x509 -days 365 -nodes -subj "/CN=hypergres" \
         -out "$PGDATA/server.crt" -keyout "$PGDATA/server.key"
       chmod 600 "$PGDATA/server.key"

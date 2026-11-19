@@ -10,6 +10,9 @@ ARCH="${ARCH:-host}"
 # start, as PGPASSWORD to local psql probes. Override per-run if needed.
 PGPASSWORD="${PGPASSWORD:-hypergres-verify-pw}"
 
+cleanup() { /opt/podman/bin/podman rm -f "$NAME" >/dev/null 2>&1 || true; }
+trap cleanup EXIT
+
 wait_ready() {
   # $1 = container name. Poll pg_isready (SCRAM needs PGPASSWORD).
   for i in $(seq 1 60); do

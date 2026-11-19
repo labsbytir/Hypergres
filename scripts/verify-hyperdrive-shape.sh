@@ -48,7 +48,7 @@ fi
 
 cleanup() {
   "$PODMAN" rm -f "$NAME" >/dev/null 2>&1 || true
-  rm -rf "${WORK:-}"
+  [ -n "${WORK:-}" ] && rm -rf "$WORK"
   rm -f hypergres-shape-build.tar
 }
 trap cleanup EXIT

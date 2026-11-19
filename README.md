@@ -37,7 +37,10 @@ re-run with `-e POSTGRES_PASSWORD` (intended).
 
 To use a real certificate, place `server.crt`/`server.key` in `$PGDATA`
 before first start (or mount a directory containing both); the entrypoint
-skips minting when both files exist.
+skips minting when both files exist. An operator-mounted `server.key` must
+be readable by the container user (uid 65532) — mode `600` owned by 65532
+recommended; postgres refuses an unreadable key, so a bad mount fails closed.
+Mount exactly one of the pair and boot exits 1 FATAL (mount both or neither).
 
 ## Hyperdrive wiring
 
